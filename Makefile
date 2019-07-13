@@ -14,7 +14,10 @@ target/x86_64-asmos/debug/bootimage-asmos.bin: target/x86_64-asmos/debug/asmos
 build: target/x86_64-asmos/debug/asmos
 
 target/x86_64-asmos/debug/asmos: $(src)
-	cargo xbuild --target x86_64-asmos.json
+	cargo xbuild --target "x86_64-asmos.json"
 
 clean:
 	cargo clean
+
+check:
+	cargo check
