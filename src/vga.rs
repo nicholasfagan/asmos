@@ -5,19 +5,16 @@ extern crate spin;
 
 use super::io;
 
-use self::spin::Mutex;
 use self::lazy_static::lazy_static;
-
+use self::spin::Mutex;
 
 lazy_static! {
-pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
-    column_position: 0,
-    color_code: ColorCode::new(Color::White, Color::Black),
-    buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
-});
-
+    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
+        column_position: 0,
+        color_code: ColorCode::new(Color::White, Color::Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+    });
 }
-
 
 //dead bc some colors might be unused.
 //we want to treat this value with this derived attr.
@@ -44,14 +41,13 @@ pub enum Color {
     White = 15,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct ColorCode(u8);
 //colorcode is just 4 bits of bg, then 4 bits of fg.
 impl ColorCode {
     pub fn new(fg: Color, bg: Color) -> ColorCode {
-        ColorCode((bg as u8 ) << 4  | (fg as u8))
+        ColorCode((bg as u8) << 4 | (fg as u8))
     }
 }
 
@@ -63,11 +59,9 @@ pub struct ScreenChar {
     color_code: ColorCode,
 }
 
-
 //default vga buffer values.
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
-
 
 //volatile so that rustc doesnt optimize away.
 use self::volatile::Volatile;
@@ -95,7 +89,7 @@ impl Writer {
                     self.new_line();
                 }
                 //always start from bbottom.
-                let row = BUFFER_HEIGHT-1;
+                let row = BUFFER_HEIGHT - 1;
                 let col = self.column_position;
                 //physically move the screenchar into memory
                 let color_code = self.color_code;
@@ -105,7 +99,7 @@ impl Writer {
                 });
                 //update our position
                 self.column_position += 1;
-                move_cursor(self.column_position as u8, (BUFFER_HEIGHT-1) as u8);
+                move_cursor(self.column_position as u8, (BUFFER_HEIGHT - 1) as u8);
             }
         }
     }
@@ -119,15 +113,15 @@ impl Writer {
             for col in 0..BUFFER_WIDTH {
                 //just shift everything up a row.
                 let character = self.buffer.chars[row][col].read();
-                self.buffer.chars[row-1][col].write(character);
+                self.buffer.chars[row - 1][col].write(character);
             }
         }
         //and reset position.
-        self.clear_row(BUFFER_HEIGHT-1);
+        self.clear_row(BUFFER_HEIGHT - 1);
         self.column_position = 0;
-        move_cursor(self.column_position as u8, (BUFFER_HEIGHT-1) as u8);
+        move_cursor(self.column_position as u8, (BUFFER_HEIGHT - 1) as u8);
     }
-    fn clear_row(&mut self, row:usize) {
+    fn clear_row(&mut self, row: usize) {
         let blank = ScreenChar {
             ascii_character: b' ',
             color_code: self.color_code,
@@ -141,14 +135,17 @@ impl Writer {
             self.clear_row(row);
         }
         self.column_position = 0;
-        move_cursor(self.column_position as u8, (BUFFER_HEIGHT-1) as u8);
+        move_cursor(self.column_position as u8, (BUFFER_HEIGHT - 1) as u8);
     }
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             match byte {
-                0x20...0x7e | b'\n' | b'\t' => //only handle printable ascii.
-                    self.write_byte(byte),
-                _ => self.write_byte(0xfe),//everything else put a block char.
+                0x20...0x7e | b'\n' | b'\t' =>
+                //only handle printable ascii.
+                {
+                    self.write_byte(byte)
+                }
+                _ => self.write_byte(0xfe), //everything else put a block char.
             }
         }
     }
@@ -162,8 +159,6 @@ impl fmt::Write for Writer {
         Ok(()) //always succeed
     }
 }
-
-
 
 // Print Macros
 
@@ -188,13 +183,13 @@ pub fn clear() {
     WRITER.lock().clear();
 }
 
-pub fn move_cursor(x:u8, y:u8) {
-    let pos :u16 = (y as u16) * (BUFFER_WIDTH as u16) + (x as u16);
+pub fn move_cursor(x: u8, y: u8) {
+    let pos: u16 = (y as u16) * (BUFFER_WIDTH as u16) + (x as u16);
 
     unsafe {
         io::outb(0x0F, 0x3D4);
-	io::outb((pos & 0xFF) as u8, 0x3D5);
-	io::outb(0x0E, 0x3D4);
-	io::outb(((pos >> 8) & 0xFF) as u8, 0x3d5);
+        io::outb((pos & 0xFF) as u8, 0x3D5);
+        io::outb(0x0E, 0x3D4);
+        io::outb(((pos >> 8) & 0xFF) as u8, 0x3d5);
     }
 }
