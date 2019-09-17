@@ -1,11 +1,15 @@
 #![no_std]
 #![no_main]
 #![feature(asm)]
+#![feature(custom_test_frameworks)]
+#![test_runner(crate::test_runner)]
+#![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
+    exit_qemu(QemuExitCode::Failed);
     loop {} // just spin after a panic
 }
 
@@ -14,18 +18,44 @@ mod vga;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("Booted. Passing control to kmain().\n");
+    println!("Booted.");
+    #[cfg(test)]
+    {
+        test_main();
+        println!("Finished Tests.");
+        exit_qemu(QemuExitCode::Failed);
+        loop{}
+    }
+    println!("Passing control to kmain().");
     kmain();
     println!("\nkmain() returned control. Halting.");
+    exit_qemu(QemuExitCode::Success);
     loop {} //so as not to run garbage after this in mem.
 }
 
 #[no_mangle]
 fn kmain() {
     vga::clear();
-    pi()
+    pi(4);
 }
-fn pi() {
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum QemuExitCode {
+    Success = 0x10,
+    Failed = 0x11,
+}
+
+pub fn exit_qemu(exit_code: QemuExitCode) {
+    use x86_64::instructions::port::Port;
+
+    unsafe {
+        let mut port = Port::new(0xf4);
+        port.write(exit_code as u32);
+    }
+}
+
+fn pi(num_digits : usize) {
     print!("pi = 3.");
     let mut digits: usize = 0;
     let groups = 200;
@@ -44,7 +74,7 @@ fn pi() {
                 i += 1;
             }
         }
-        if digits >= 10 {
+        if digits >= num_digits {
             break;
         }
     }
@@ -84,3 +114,18 @@ fn ex(i: i32) -> f64 {
 fn nthd(n: usize, num: f64) -> u8 {
     (((abs(num) * ex(n as i32)) as u64) % 10) as u8
 }
+
+
+#[cfg(test)]
+fn test_runner(tests: &[&dyn Fn()]) {
+    println!("Running {} tests", tests.len());
+    for test in tests {
+        test();
+    }
+}
+
+    #[test_case]
+    fn simple() {
+        assert_eq!(2+2,4);
+    }
+

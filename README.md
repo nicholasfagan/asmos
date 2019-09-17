@@ -5,6 +5,8 @@ Creates a bootable image and runs in qemu.
 
 # Requirements
 
-* rust nightly build tools
-* qemu
-* bootimage 0.6+
+* rust `nightly` toolchain
+* `llvm-tools-preview` (a rust component)
+* `cargo xbuild` (for rust cross-compilation)
+* `bootimage` (to create the bootable image)
+* `qemu` (to run)
